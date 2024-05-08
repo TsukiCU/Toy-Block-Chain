@@ -1,0 +1,5 @@
+*.txt
+*.mp3
+
+test/
+log/
