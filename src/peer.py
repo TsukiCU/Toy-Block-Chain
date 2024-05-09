@@ -2,7 +2,6 @@ import sys
 import time
 import math
 import socket
-import os
 from random import uniform
 from ast import literal_eval
 from threading import Thread
@@ -23,7 +22,8 @@ peer_port = 54321
 
 class Peer:
     def __init__(self, stay_time):
-        self.my_ip = socket.gethostbyname(socket.gethostname())
+        #self.my_ip = socket.gethostbyname(socket.gethostname())
+        self.my_ip = "172.16.213.130"
         self.connected = False
         self.stay_time = stay_time
         self.peer_port = peer_port
@@ -36,7 +36,7 @@ class Peer:
 
         # User's information
         self.name = f"{self.my_ip}@4119.com"
-        self.signature = sha256(self.my_ip.encode('utf-8')).hexdigest()
+        #self.signature = sha256(self.my_ip.encode('utf-8')).hexdigest()
 
         # Initialize the block chain
         self.block_chain = Blockchain(self.my_ip)
@@ -71,7 +71,6 @@ class Peer:
         time.sleep(0.8) # Ensure the listen thread is running!!!!
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                print(self.tracker_addr)
                 s.connect(self.tracker_addr)
                 message = "JOIN"
                 self.connected = True
@@ -496,7 +495,7 @@ class Peer:
         '''
         Two conditions for a peer to start mining:
             - Every 20 seconds.
-            - Transaction pool reaches a certain size (4). (I am using this one)
+            - Transaction pool reaches a certain size (3). (I am using this one)
 
         NOTE: Consider a block contains only one ts for now. Using a fixed difficulty (medium).
         '''

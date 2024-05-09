@@ -73,15 +73,3 @@ class Blockchain:
             if curr.previous_hash != prev.calc_hash():
                 return False
         return True
-
-    def log(self):
-        """
-        Log the contents of the blockchain in a specific file for each peer.
-        """
-        with open("../log/Peer {self.my_ip} log.txt", "a") as f:
-            f.write(f"\n\n\n")
-            f.write(f"==================== Peer {self.my_ip} blockchain ====================\n")
-            f.write("Index \t Timestamp \t\t\t Difficulty \t\t Previous_hash \t Nonce \t Hash\n")
-            for block in self.chain:               
-                header = block.get_header()
-                f.write(f"{header['index']} \t {header['timestamp']} \t {header['difficulty']} \t\t {header['previous_hash']} \t {header['nonce']} \t {header['hash']}")

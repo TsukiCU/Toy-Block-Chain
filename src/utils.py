@@ -23,19 +23,18 @@ def switch_difficulty(mine_time:float, curr_difficulty:str):
     if float(mine_time) < 10:
         if curr_difficulty == "easy":
             print("Difficulty level switched from easy to medium")
-            return "medium"
+            curr_difficulty = "medium"
         elif curr_difficulty == "medium":
             print("Difficulty level switched from medium to hard")
-            return "hard"
+            curr_difficulty = "hard"
     if float(mine_time) > 20:
         if curr_difficulty == "medium":
             print("Difficulty level switched from medium to easy")
-            return "easy"
+            curr_difficulty = "easy"
         elif curr_difficulty == "hard":
             print("Difficulty level switched from hard to medium")
-            return "medium"
+            curr_difficulty = "medium"
 
-    # Return the same difficulty if no switch is needed.
     return curr_difficulty
 
 def meet_hash_criteria(data, difficulty:str):
