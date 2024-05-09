@@ -2,6 +2,7 @@ import sys
 import time
 import math
 import socket
+import os
 from random import uniform
 from ast import literal_eval
 from threading import Thread
@@ -17,13 +18,12 @@ from blockchain import Blockchain
 ################################
 
 #tracker_addr = ("<tracker_internal_ip_address>", 65432)
-tracker_addr = ("172.16.213.128", 65431)
+tracker_addr = ("172.16.213.130", 65431)
 peer_port = 54321
 
 class Peer:
     def __init__(self, stay_time):
-        #self.my_ip = socket.gethostbyname(socket.gethostname())
-        self.my_ip = "172.16.213.1"
+        self.my_ip = socket.gethostbyname(socket.gethostname())
         self.connected = False
         self.stay_time = stay_time
         self.peer_port = peer_port
@@ -426,6 +426,20 @@ class Peer:
                 print(f"Error connecting to Tracker in heartbeat: {e}")
             time.sleep(5)
 
+    def connect_to_peers(self):
+        for peer in self.peer_list:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                try:
+                    sock.connect((peer, peer_port))
+                    self.peer_sockets[peer] = sock
+                except Exception as e:
+                    print(f"Errors when connecting to peers : {e}")
+                    sys.exit()   
+        print(f"{self.my_ip} successfully connected to all peers.")
+
+        if record:
+            self.log()
+
     def leave(self):
         # Send a "LEAVE" message to the tracker. Close all the connections with other peers.
         # Before it leaves, log its local blockchain.
@@ -490,7 +504,7 @@ class Peer:
             # If we are in conflict solving mode, just wait until it's resolved.
             if not self.conflict_solve:
                 continue
-            if len(self.transaction_pool) >= 1:
+            if len(self.transaction_pool) >= 3:
                 ts = self.transaction_pool[0].serialize_transaction()
                 create_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
                 block = Block(index=len(self.block_chain.chain), timestamp=create_time, transaction=ts,\
@@ -509,7 +523,6 @@ class Peer:
                 block.mine_time = mine_time
 
                 self.curr_difficulty = switch_difficulty(mine_time, self.curr_difficulty)
-
                 if self.block_chain.add_block(block, block.hash):
                     self.broadcast_block(block.serialize_block())
                     del self.transaction_pool[0]

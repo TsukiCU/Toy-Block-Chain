@@ -28,7 +28,6 @@ class Blockchain:
 
         TODO: Could easily check if the owner is changed. (signature->username)
         """
-
         last_block = self.chain[-1]
         previous_hash = last_block.calc_hash()
 
@@ -43,7 +42,7 @@ class Blockchain:
             return False
 
         # Check if the previous hash match
-        elif previous_hash != block.previous_hash:
+        elif previous_hash != block.previous_hash and last_block.data != "Genesis Block":
             print("Received a block but the previous hash didn't match.")
             return False
 
@@ -86,7 +85,3 @@ class Blockchain:
             for block in self.chain:               
                 header = block.get_header()
                 f.write(f"{header['index']} \t {header['timestamp']} \t {header['difficulty']} \t\t {header['previous_hash']} \t {header['nonce']} \t {header['hash']}")
-    
-if __name__ == "__main__":
-    bc = Blockchain(4)
-    bc.print_chain()

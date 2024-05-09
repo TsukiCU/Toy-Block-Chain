@@ -28,11 +28,21 @@ class App(Peer):
         self.user_name = ""
         self.song_name = ""
         self.signature = ""
+        self.receiver = ''
+        self.song = ''
 
         # Pop up message
         self.show_pop_up = False
         self.error_message = ""
         self.pop_up_timer = None
+
+    def clear_ts_info(self):
+        '''
+        Clear the transaction info.
+        '''
+        self.user_name = ""
+        self.song_name = ""
+        self.signature = ""
 
     def get_local_blockchain(self):
         '''
@@ -94,6 +104,34 @@ class App(Peer):
             else:
                 self.signature += event.unicode
 
+    def handle_transfer_input(self, event, user_input):
+        """
+        Handle user input for transferring license
+        """
+        if user_input == 'receiver':
+            if event.key == pygame.K_BACKSPACE:
+                self.receiver = self.receiver[:-1]
+            else:
+                self.receiver += event.unicode
+        elif user_input == 'song':
+            if event.key == pygame.K_BACKSPACE:
+                self.song = self.song[:-1]
+            else:
+                self.song += event.unicode
+
+
+    def get_peer_list(self):
+        """
+        Return list of peers
+        """
+        return self.peer_list
+
+    def get_local_blockchain(self):
+        """
+        Return peer's local blockchain
+        """
+        return self.block_chain.chain[1:]
+    
     def make_app_transaction(self):
         """
         Create a new transaction and add it to the transaction pool.
@@ -102,9 +140,12 @@ class App(Peer):
         self.transaction_pool.append(new_transaction)
         print("Transaction added to the transaction pool. Current pool size : ", len(self.transaction_pool))
         self.broadcast_transaction(new_transaction)
-        self.user_name, self.song_name, self.signature = "", "", ""
+        self.clear_ts_info()
 
     def draw_main_screen(self, screen, sync=False):
+        """
+        Draw the contents of the main screen
+        """
         screen.fill((173, 216, 230))
         # Draw the welcome message at the top
         font = pygame.font.Font("../asset/Sedan.ttf", 30)
@@ -114,7 +155,7 @@ class App(Peer):
 
         # Add three buttons on the left side.
         button_font = pygame.font.Font("../asset/Sedan.ttf", 20)
-        button_text = ["Register Song", "Transfer License", "Other Functions"]
+        button_text = ["Register Song", "Transfer License", "Exit"]
         button_y = 170
 
         # Register
@@ -134,11 +175,11 @@ class App(Peer):
         button_y += 130
 
         # Some other functions
-        other_text = button_text[2]
-        other_button = pygame.draw.rect(screen, self.black_color, (50, button_y, 200, 50))
-        other_text = button_font.render(other_text, True, (255, 255, 255))
-        text_rect3 = other_text.get_rect(center=other_button.center)
-        screen.blit(other_text, text_rect3)
+        exit_text = button_text[2]
+        exit_button = pygame.draw.rect(screen, (30, 3, 66), (50, button_y, 200, 50))
+        exit_text = button_font.render(exit_text, True, (255, 255, 255))
+        text_rect3 = exit_text.get_rect(center=exit_button.center)
+        screen.blit(exit_text, text_rect3)
         button_y += 130
 
         # Local blockchain text area
@@ -176,11 +217,11 @@ class App(Peer):
         text_rect = text.get_rect(center=sync_button.center)
         screen.blit(text, text_rect)
 
-        return register_button, transfer_button, other_button, sync_button
+        return register_button, transfer_button, exit_button, sync_button
 
     def draw_register_screen(self, screen, reset=False):
         '''
-            Song registration screen
+        Song registration screen
         '''
         screen.fill((245, 245, 220))
         font = pygame.font.Font("../asset/Sedan.ttf", 28)
@@ -271,8 +312,107 @@ class App(Peer):
         text_rect = text.get_rect(center=popup_rect.center)
         screen.blit(text, text_rect)
 
-    def draw_transfer_screen(self, screen):
+    def draw_transfer_screen(self, screen, reset=False):
+        """
+        Draw the screen for transferring the license
+        """
+        screen.fill((245, 245, 220))
+        font = pygame.font.Font("../asset/Sedan.ttf", 28)
+        text = font.render("Transfer License", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(400, 40))
+        screen.blit(text, text_rect)
+
+        if reset:
+            self.receiver = ""
+            self.song = ""
+            reset = False
+
+        # Receiver
+        font = pygame.font.Font('../asset/Sedan.ttf', 16)
+        text = font.render("Receiver", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(120, 150))
+        screen.blit(text, text_rect)
+        pygame.draw.rect(screen, (255, 255, 255), (200, 135, 400, 30))
+
+        if self.receiver:
+            font = pygame.font.Font('../asset/Sedan.ttf', 16)
+            text = font.render(self.receiver, True, (0, 0, 0))
+            text_rect = text.get_rect(center=(445, 150))
+            screen.blit(text, text_rect)
+
+        # Song name
+        text = font.render("Song Name", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(120, 250))
+        screen.blit(text, text_rect)
+        pygame.draw.rect(screen, (255, 255, 255), (200, 235, 400, 30))
+        
+        if self.song:
+            font = pygame.font.Font('../asset/Sedan.ttf', 16)
+            text = font.render(self.song, True, (0, 0, 0))
+            text_rect = text.get_rect(center=(445, 250))
+            screen.blit(text, text_rect)
+
+        # Transfer button
+        transfer_button = pygame.draw.rect(screen, (49, 54, 63), (450, 450, 100, 50))
+        text = font.render("Transfer", True, (255, 255, 255))
+        text_rect = text.get_rect(center=transfer_button.center)
+        screen.blit(text, text_rect)
+
+        # Return button
+        return_button = pygame.draw.rect(screen, (49, 54, 63), (150, 450, 100, 50))
+        text = font.render("Return", True, (255, 255, 255))
+        text_rect = text.get_rect(center=return_button.center)
+        screen.blit(text, text_rect)
+
+        # Reset button
+        reset_button = pygame.draw.rect(screen, (49, 54, 63), (300, 450, 100, 50))
+        text = font.render("Reset", True, (255, 255, 255))
+        text_rect = text.get_rect(center=reset_button.center)
+        screen.blit(text, text_rect)
+
+        if self.show_pop_up:
+            self.pop_up_message(screen, self.error_message)
+            pygame.display.update()
+
+        return transfer_button, return_button, reset_button, reset
+
         pass
+
+    def check_transfer(self):
+        """
+        Check if the transfer submission is valid.
+        """
+        if not self.receiver:
+            self.error_message = "Receiver missing !"
+            return False
+        elif not self.song:
+            self.error_message = "Song name missing !"
+            return False
+        else:
+            print("WORKED")
+            for block in self.get_local_blockchain():
+                transaction = json.loads(block.data)
+                if transaction['song_path'] == self.song:
+                    if transaction['user_name'] != self.name:
+                        self.error_message = "You are not the owner!"
+                        return False
+                    else:
+                        return True
+            self.error_message = "Song doesn't exist!"     
+        return False
+    
+    def issue_license_change(self):
+        """
+        Change the owner of a song according to the transfer submission.
+        """
+        for block in self.get_local_blockchain():
+                transaction = json.loads(block.data)
+                if transaction['song_path'] == self.song:
+                    if transaction['user_name'] == self.name:
+                        new_transaction = Transaction(self.receiver, self.song, str(datetime.now()), self.receiver)
+                        block.data = new_transaction.serialize_transaction()
+        print("Licensing changed")
+        self.receiver, self.song = "", ""
 
     def start(self):
         """
@@ -284,6 +424,9 @@ class App(Peer):
         Thread(target=self.start_mine, daemon=True).start()
 
     def main(self):
+        """
+        Run the contents of the game and act according to user input.
+        """
         pygame.init()
         screen = pygame.display.set_mode((800, 600))
         pygame.display.set_caption("Blockchain-based Song Management")
@@ -296,7 +439,7 @@ class App(Peer):
         sync_button = None
         register_button = None
         transfer_button = None
-        other_button = None
+        exit_button = None
         sync = False
 
         # Buttons for the register screen
@@ -316,9 +459,11 @@ class App(Peer):
                 break
 
             if current_screen == 'main':
-                register_button, transfer_button, other_button, sync_button = self.draw_main_screen(screen, sync)
+                register_button, transfer_button, exit_button, sync_button = self.draw_main_screen(screen, sync)
             elif current_screen == 'register':
                 return_button, reset_button, submit_button, reset = self.draw_register_screen(screen, reset)
+            elif current_screen == 'transfer':
+                transfer_button, return_button, reset_button, reset = self.draw_transfer_screen(screen, reset)
 
             # Check out if it's during a pop up message.
             if self.show_pop_up:
@@ -340,9 +485,10 @@ class App(Peer):
                         if register_button and register_button.collidepoint(event.pos):
                             current_screen = 'register'
                         if transfer_button and transfer_button.collidepoint(event.pos):
-                            pass
-                        if other_button and other_button.collidepoint(event.pos):
-                            pass
+                            current_screen = 'transfer'
+                            print("clicked on Transfer License")
+                        if exit_button and exit_button.collidepoint(event.pos):
+                            print("clicked on Exit")
                         if sync_button and sync_button.collidepoint(event.pos):
                             sync = True
 
@@ -363,9 +509,30 @@ class App(Peer):
                                 user_input = 'signature'
                             else:
                                 user_input = None
+                    
+                    # Buttons on the transfer screen
+                    if current_screen == 'transfer':
+                        if return_button and return_button.collidepoint(event.pos):
+                            current_screen = 'main'
+                            print("Clicked on Return")
+                            continue
+                        if reset_button and reset_button.collidepoint(event.pos):
+                            reset = True
+                            user_input = None
+                            continue
+                        # User clicks on either of the text input box in transfer screen
+                        if current_screen == 'transfer':
+                            if 200 <= event.pos[0] <= 600 and 100 <= event.pos[1] <= 165:
+                                user_input = 'receiver'
+                            elif 200 <= event.pos[0] <= 600 and 200 <= event.pos[1] <= 265:
+                                user_input = 'song'
+                            else:
+                                user_input = None
+
 
                 if event.type == pygame.KEYDOWN and user_input:
                     self.handle_user_input(event, user_input)
+                    self.handle_transfer_input(event, user_input)
                 
                 if event.type == pygame.MOUSEBUTTONDOWN and submit_button and submit_button.collidepoint(event.pos):
                     # Check the validity of this transaction.
@@ -376,8 +543,25 @@ class App(Peer):
                         continue
                     current_screen = 'main'
                     self.make_app_transaction()
-                    # for block in self.block_chain.chain[1:]:
-                    #     print(block)
+                    print("Blockchain:")
+                    print(len(self.transaction_pool))
+                    for block in self.block_chain.chain[1:]:
+                        print(block)
+                
+                if event.type == pygame.MOUSEBUTTONDOWN and exit_button and exit_button.collidepoint(event.pos):
+                    self.leave()
+                    pygame.quit()
+                    sys.exit()
+                
+                if event.type == pygame.MOUSEBUTTONDOWN and transfer_button and transfer_button.collidepoint(event.pos):
+                    answer = self.check_transfer()
+                    if self.error_message:
+                        self.show_pop_up = True
+                        self.pop_up_timer = Timer(2)
+                        continue
+                    if answer:
+                        self.issue_license_change()
+                        current_screen = 'main'
 
             pygame.display.update()
 

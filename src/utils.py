@@ -63,6 +63,8 @@ def meet_hash_criteria(data, difficulty:str):
     else:
         return False
 
+record = True
+
 def calc_mrkl_root(data):
     '''
     Calculates the merkle root of a list of transactions.
