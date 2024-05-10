@@ -3,11 +3,12 @@ from utils import *
 
 
 class Transaction:
-    def __init__(self, user_name, transaction_type, timestamp, signature):
+    def __init__(self, transaction_type, user_name, timestamp, signature, other_user=None):
         self.user_name = user_name
         self.timestamp = timestamp
         self.transaction_type = transaction_type
         self.signature = signature
+        self.other_user = other_user    # For Transfer transaction
 
     def serialize_transaction(self):
         """
@@ -17,51 +18,36 @@ class Transaction:
             'transaction_type': self.transaction_type, # 'Register' or 'Transfer
             'user_name': self.user_name,
             'timestamp': self.timestamp,
+            'song_name': self.song_name,
+            'song_hash': self.song_hash,
             'signature': self.signature
         }
+        if self.other_user:
+            serialized_ts['other_user'] = self.other_user
         return json.dumps(serialized_ts)
 
 
 class Register(Transaction):
     def __init__(self, user_name, song_name, timestamp, signature):
-        super().__init__(user_name, "Register", timestamp, signature)
+        super().__init__('Register', user_name, timestamp, signature)
         self.song_name = song_name
         self.song_hash = hash_song("songs/" + self.song_name + ".mp3")
-
-    def serialize_transaction(self):
-        """
-        Store Registration object data as a json.
-        """
-        serialized_ts = {
-            'transaction_type': 'Register', # 'Register' or 'Transfer
-            'user_name': self.user_name,
-            'timestamp': self.timestamp,
-            'song_name': self.song_name,
-            'song_hash': self.song_hash,
-            'signature': self.signature
-        }
-        return json.dumps(serialized_ts)
     
     def __str__(self):
         return f"User : {self.user_name} registered."
 
 
 class Transfer(Transaction):
-    def __init__(self, user_name, song_path, timestamp, signature):
-        super().__init__(user_name, song_path, timestamp, signature)
-
-    def serialize_transaction(self):
-        """
-        Store Transfer object data as a json.
-        """
-        serialized_ts = {
-            'user_name': self.user_name,
-            'timestamp': self.timestamp,
-            'song_path': self.song_path,
-            'song_hash': self.song_hash,
-            'signature': self.signature
-        }
-        return json.dumps(serialized_ts)
+    def __init__(self, user_name, song_name, timestamp, signature, other_user):
+        '''
+        User_name: User who is transferring the song.
+        Other_user: User who is receiving the song.
+        Transfer can happen locally or remotely.
+        '''
+        super().__init__('Transfer', user_name, timestamp, signature)
+        self.song_name = song_name
+        self.other_user = other_user
+        self.song_hash = hash_song("songs/" + self.song_name + ".mp3")
     
     def __str__(self):
         return f"User : {self.user_name} transferred a song."

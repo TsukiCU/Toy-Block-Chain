@@ -28,6 +28,7 @@ class App(Peer):
         self.user_name = ''
         self.song_name = ''
         self.signature = ''
+        self.sender = ''
         self.receiver = ''
         self.song = ''
 
@@ -35,6 +36,9 @@ class App(Peer):
         self.show_pop_up = False
         self.error_message = ''
         self.pop_up_timer = None
+
+        # local artists
+        self.artists = []
 
     def exit_app(self):
         self.leave()
@@ -48,6 +52,9 @@ class App(Peer):
         self.user_name = ''
         self.song_name = ''
         self.signature = ''
+        self.sender    = ''
+        self.receiver  = ''
+        self.song      = ''
 
     def get_local_blockchain(self):
         '''
@@ -70,64 +77,90 @@ class App(Peer):
         song_name   = ts['song_name']
         timestamp   = datetime.strptime(ts['timestamp'], '%Y-%m-%d %H:%M:%S.%f').strftime('%H:%M:%S')
         return author_name, song_name, timestamp
+    
+    def get_remote_artists(self):
+        '''
+        FIXME : Get the list of artists from the remote peers.
+        '''
+        remote_artists = []
+        for peer in self.peer_list:
+            self.send_message(peer, "GET_ARTISTS")
+        return remote_artists
 
-    def ts_valid_check(self):
+    def ts_valid_check(self, type:str):
         '''
         Check if a transaction is valid.
         '''
+        if not self.error_message:  # make sure error message is empty.
+            self.error_message = ''
+        if type != 'Transfer' and type != 'Register':
+            print("Invalid transaction type !")
+            return
 
-        if not self.user_name:
-            self.error_message = "User name missing !"
-        elif not self.song_name:
-            self.error_message = "Song name missing !"
-        elif not self.signature:
-            self.error_message = "Signature missing !"
-        elif self.user_name != self.signature:
-            # let's do this for simplicity and assume that signature and user name are the same.
-            # It's also better for displaying the songs' information.
-            self.error_message = "The name and signature don't match"
-        elif not os.path.exists("songs/" + self.song_name + ".mp3"):
-            self.error_message = "Song doens't exist, please upload it first."
+        elif type == 'Register':
+            if not self.user_name:
+                self.error_message = "User name missing !"
+            elif not self.song_name:
+                self.error_message = "Song name missing !"
+            elif not self.signature:
+                self.error_message = "Signature missing !"
+            elif self.user_name != self.signature:
+                # let's do this for simplicity and assume that signature and user name are the same.
+                # It's also better for displaying the songs' information.
+                self.error_message = "The name and signature don't match"
+            elif not os.path.exists("songs/" + self.song_name + ".mp3"):
+                self.error_message = "Song doens't exist, please upload it first."
+        
+        elif type == 'Transfer':
+            if not self.sender:
+                self.error_message = "Sender missing !"
+            elif not self.receiver:
+                self.error_message = "Receiver missing !"
+            elif not self.song:
+                self.error_message = "Song name missing !"
+            elif not os.path.exists("songs/" + self.song + ".mp3"):
+                self.error_message = "Song doesn't exist !"
+
+            elif self.sender not in self.artists and self.sender not in self.get_remote_artists():
+                self.error_message = "Who is this sender ?"
+            elif self.receiver not in self.artists and self.receiver not in self.get_remote_artists():
+                self.error_message = "Who is this receiver ?"
+            elif self.sender == self.receiver:
+                self.error_message = "Sending a song to yourself, huh ?"
+            else:
+                for block in self.get_local_blockchain():
+                    # get the info of the song.
+                    transaction = json.loads(block.data)
+                    if transaction['transaction_type'] == 'Register' and transaction['song_name'] == self.song:
+                        song_owner = transaction['user_name']
+                        continue
+                    elif transaction['transaction_type'] == 'Transfer' and transaction['song_name'] == self.song:
+                        song_owner = transaction['other_user']
+                        continue
+                if not song_owner:
+                    self.error_message = "Song has not been registered yet !"
+                elif song_owner != self.sender:
+                    self.error_message = "You are not the owner !"
+                elif song_owner == self.receiver:
+                    self.error_message = "Looks like the receiver already has the song !"
+                else:
+                    return True
 
     def handle_user_input(self, event, user_input):
         '''
         Handle user input.
         '''
-        if user_input == 'user_name':
+        if hasattr(self, user_input):
+            current_value = getattr(self, user_input)
             if event.key == pygame.K_BACKSPACE:
-                self.user_name = self.user_name[:-1]
+                new_value = current_value[:-1]
             else:
-                self.user_name += event.unicode
-        elif user_input == 'song_name':
-            if event.key == pygame.K_BACKSPACE:
-                self.song_name = self.song_name[:-1]
-            else:
-                self.song_name += event.unicode
-        elif user_input == 'signature':
-            if event.key == pygame.K_BACKSPACE:
-                self.signature = self.signature[:-1]
-            else:
-                self.signature += event.unicode
-
-    def handle_transfer_input(self, event, user_input):
-        '''
-        Handle user input for transferring license
-        '''
-        if user_input == 'receiver':
-            if event.key == pygame.K_BACKSPACE:
-                self.receiver = self.receiver[:-1]
-            else:
-                self.receiver += event.unicode
-        elif user_input == 'song':
-            if event.key == pygame.K_BACKSPACE:
-                self.song = self.song[:-1]
-            else:
-                self.song += event.unicode
+                new_value = current_value + event.unicode
+            setattr(self, user_input, new_value)
+        else:
+            print("Something is wrong with the user input!")
 
     def get_local_blockchain(self):
-        '''
-        Return peer's local blockchain
-        '''
         return self.block_chain.chain[1:]
     
     def make_app_transaction(self, type:str):
@@ -139,11 +172,26 @@ class App(Peer):
             new_transaction = Register(self.user_name, self.song_name, str(datetime.now()), self.signature)
             print(f"{self.user_name} registered a song named {self.song_name}. Current pool size : {len(self.transaction_pool)+1}")
         elif type == 'Transfer':
-            new_transaction = Transfer(self.user_name, self.song_name, str(datetime.now()), self.signature)
+            # FIXME: get the sender and receiver !!
+            new_transaction = Transfer(self.sender, self.song_name, str(datetime.now()), self.signature, self.receiver)
             print(f"{self.user_name} transferred a song named {self.song_name}. Current pool size : {len(self.transaction_pool)+1}")
         self.transaction_pool.append(new_transaction)
         self.broadcast_transaction(new_transaction)
         self.clear_ts_info()
+
+    def pop_up_message(self, screen, message):
+        '''
+        Shows a pop up message. For simplicity, let the message always appear in
+        the center of the screen and stay for 2 seconds.
+        '''
+        font = pygame.font.Font('../asset/Sedan.ttf', 20)
+        popup_rect = pygame.Rect(200, 200, 400, 150)
+        pygame.draw.rect(screen, (255, 200, 200), popup_rect)
+        pygame.draw.rect(screen, (0, 0, 0), popup_rect, 2)
+
+        text = font.render(message, True, (0, 0, 0))
+        text_rect = text.get_rect(center=popup_rect.center)
+        screen.blit(text, text_rect)
 
     def draw_main_screen(self, screen, sync=False):
         '''
@@ -301,20 +349,6 @@ class App(Peer):
 
         return return_button, reset_button, submit_button, reset
 
-    def pop_up_message(self, screen, message):
-        '''
-        Shows a pop up message. For simplicity, let the message always appear in
-        the center of the screen and stay for 2 seconds.
-        '''
-        font = pygame.font.Font('../asset/Sedan.ttf', 20)
-        popup_rect = pygame.Rect(200, 200, 400, 150)
-        pygame.draw.rect(screen, (255, 200, 200), popup_rect)
-        pygame.draw.rect(screen, (0, 0, 0), popup_rect, 2)
-
-        text = font.render(message, True, (0, 0, 0))
-        text_rect = text.get_rect(center=popup_rect.center)
-        screen.blit(text, text_rect)
-
     def draw_transfer_screen(self, screen, reset=False):
         '''
         Draw the screen for transferring the license
@@ -330,29 +364,41 @@ class App(Peer):
             self.song = ''
             reset = False
 
-        # Receiver
+        # Sender
         font = pygame.font.Font('../asset/Sedan.ttf', 16)
-        text = font.render("Receiver", True, (0, 0, 0))
+        text = font.render("Sender", True, (0, 0, 0))
         text_rect = text.get_rect(center=(120, 150))
         screen.blit(text, text_rect)
         pygame.draw.rect(screen, (255, 255, 255), (200, 135, 400, 30))
 
-        if self.receiver:
+        if self.sender:
             font = pygame.font.Font('../asset/Sedan.ttf', 16)
-            text = font.render(self.receiver, True, (0, 0, 0))
-            text_rect = text.get_rect(center=(445, 150))
+            text = font.render(self.sender, True, (0, 0, 0))
+            text_rect = text.get_rect(center=(380, 150))
             screen.blit(text, text_rect)
 
-        # Song name
+        # Receiver
         text = font.render("Song Name", True, (0, 0, 0))
         text_rect = text.get_rect(center=(120, 250))
         screen.blit(text, text_rect)
         pygame.draw.rect(screen, (255, 255, 255), (200, 235, 400, 30))
-        
+
+        if self.receiver:
+            font = pygame.font.Font('../asset/Sedan.ttf', 16)
+            text = font.render(self.receiver, True, (0, 0, 0))
+            text_rect = text.get_rect(center=(380, 250))
+            screen.blit(text, text_rect)
+
+        # Song name
+        text = font.render("Receiver", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(120, 350))
+        screen.blit(text, text_rect)
+        pygame.draw.rect(screen, (255, 255, 255), (200, 335, 400, 30))
+
         if self.song:
             font = pygame.font.Font('../asset/Sedan.ttf', 16)
             text = font.render(self.song, True, (0, 0, 0))
-            text_rect = text.get_rect(center=(445, 250))
+            text_rect = text.get_rect(center=(380, 350))
             screen.blit(text, text_rect)
 
         # Transfer button
@@ -378,41 +424,6 @@ class App(Peer):
             pygame.display.update()
 
         return transfer_button, return_button, reset_button, reset
-
-    def check_transfer(self):
-        '''
-        Check if the transfer submission is valid.
-        '''
-        if not self.receiver:
-            self.error_message = "Receiver missing !"
-            return False
-        elif not self.song:
-            self.error_message = "Song name missing !"
-            return False
-        else:
-            for block in self.get_local_blockchain():
-                transaction = json.loads(block.data)
-                if transaction['song_path'] == self.song:
-                    if transaction['user_name'] != self.name:
-                        self.error_message = "You are not the owner!"
-                        return False
-                    else:
-                        return True
-            self.error_message = "Song doesn't exist!"     
-        return False
-    
-    def issue_license_change(self):
-        '''
-        Change the owner of a song according to the transfer submission.
-        '''
-        for block in self.get_local_blockchain():
-                transaction = json.loads(block.data)
-                if transaction['song_path'] == self.song:
-                    if transaction['user_name'] == self.name:
-                        new_transaction = Transaction(self.receiver, self.song, str(datetime.now()), self.receiver)
-                        block.data = new_transaction.serialize_transaction()
-        print("Licensing changed")
-        self.receiver, self.song = '', ''
 
     def start(self):
         '''
@@ -481,8 +492,10 @@ class App(Peer):
                     if current_screen == 'main':
                         if register_button and register_button.collidepoint(event.pos):
                             current_screen = 'register'
+                            break
                         if transfer_button and transfer_button.collidepoint(event.pos):
                             current_screen = 'transfer'
+                            break
                         if exit_button and exit_button.collidepoint(event.pos):
                             self.exit_app()
                         if sync_button and sync_button.collidepoint(event.pos):
@@ -505,7 +518,7 @@ class App(Peer):
                                 user_input = 'signature'
                             else:
                                 user_input = None
-                    
+
                     # Buttons on the transfer screen
                     if current_screen == 'transfer':
                         if return_button and return_button.collidepoint(event.pos):
@@ -524,30 +537,29 @@ class App(Peer):
                             else:
                                 user_input = None
 
-
                 if event.type == pygame.KEYDOWN and user_input:
                     self.handle_user_input(event, user_input)
-                    self.handle_transfer_input(event, user_input)
-                
+
                 if event.type == pygame.MOUSEBUTTONDOWN and submit_button and submit_button.collidepoint(event.pos):
                     # Check the validity of this transaction.
-                    self.ts_valid_check()
+                    self.ts_valid_check('Register')
                     if self.error_message:
                         self.show_pop_up = True
                         self.pop_up_timer = Timer(2)
                         continue
-                    current_screen = 'main'
+                    if self.user_name not in self.artists:
+                        self.artists.append(self.user_name)
                     self.make_app_transaction('Register')
-           
+                    current_screen = 'main'
+
                 if event.type == pygame.MOUSEBUTTONDOWN and transfer_button and transfer_button.collidepoint(event.pos):
-                    answer = self.check_transfer()
+                    self.ts_valid_check('Transfer')
                     if self.error_message:
                         self.show_pop_up = True
                         self.pop_up_timer = Timer(2)
                         continue
-                    if answer:
-                        self.issue_license_change()
-                        current_screen = 'main'
+                    self.make_app_transaction('Transfer')
+                    current_screen = 'main'
 
             pygame.display.update()
 

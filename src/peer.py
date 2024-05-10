@@ -17,12 +17,14 @@ from blockchain import Blockchain
 # Peers are listening on 54321 #
 ################################
 
-tracker_addr = ("<tracker_internal_ip_address>", 65432)
+#tracker_addr = ("<tracker_internal_ip_address>", 65432)
+tracker_addr = ("172.16.213.130", 65431)
 peer_port = 54321
 
 class Peer:
     def __init__(self, stay_time):
-        self.my_ip = socket.gethostbyname(socket.gethostname())
+        #self.my_ip = socket.gethostbyname(socket.gethostname())
+        self.my_ip = "172.16.213.1"
         self.connected = False
         self.stay_time = stay_time
         self.peer_port = peer_port
@@ -41,13 +43,13 @@ class Peer:
         self.block_chain = Blockchain(self.my_ip)
         self.transaction_pool = []
         self.curr_difficulty = "medium"
-    
+
     def start(self):
         '''
         Start the peer. The peer first joins the network, then stays for a
         certain amount of time, and finally leaves the network.
         '''
-        with open(f"../log/{self.my_ip} peer_list_log.txt", "w") as f:
+        with open(f"../log/{self.my_ip} peer_list_log.txt", 'w') as f:
             f.write(f"Peer : {self.my_ip}, Stay time : {self.stay_time}\n")
 
         self.join()
@@ -149,9 +151,9 @@ class Peer:
                     print("Error during communication:", e)
 
     def handle_req_change(self, data:str, addr):
-        """
+        '''
         Handle the request to modify the local blockchain.
-        """
+        '''
 
         # Check if we know this peer. This has to be done here.
         if addr not in self.peer_list:
@@ -191,9 +193,9 @@ class Peer:
         self.conflict_solve = True
     
     def is_valid_bc(self, received_bc):
-        """
+        '''
         Checks if the received blockchain is valid.
-        """
+        '''
         if not received_bc:
             print("Received an empty blockchain.")
             return False
@@ -209,9 +211,9 @@ class Peer:
         return True
 
     def handle_received_ts(self, data:str, addr):
-        """
+        '''
         Handle the received transaction. Add it to the transaction pool if it's valid.
-        """
+        '''
         # Check if we know this peer. This has to be done here.
         if addr not in self.peer_list:
             print(f"<!!! WARNING !!!> : Suspicious transaction from unknown sender {addr} !")
@@ -220,9 +222,9 @@ class Peer:
         ts = literal_eval(data)
         type = ts['transaction_type']
         if type == 'Register':
-            ts = Register(ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
+            ts = Register('Register', ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
         elif type == 'Transfer':
-            ts = Transfer(ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
+            ts = Transfer('Transfer', ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
         else:
             print(f"Unknown transaction type received from {addr}.")
             return
@@ -230,13 +232,13 @@ class Peer:
         print(f"Received new transaction from {addr}. Transaction pool size : {len(self.transaction_pool)}")
 
     def handle_received_bc(self, data:str, addr):
-        """
+        '''
         data format : '{"index": "0", "timestamp":  ...  }END'
         Collect the received data in peer_block_chain. If one
         key corresponds to a value that is greater than half 
         of the peer #, go with this and change local_bc_built
         to True, and send it to self.build_chain_from_data().
-        """
+        '''
 
         print(f"Received a blockchain sent by {addr}")
 
@@ -253,10 +255,10 @@ class Peer:
         print(f"Local blockchain built. Length : {len(self.block_chain.chain)}")
 
     def get_chain_from_data(self, data:str):
-        """
+        '''
         Build a chain from the received data.
         Data format : '[Block 1][END][Block 2][END] ... [Block N][END]'
-        """
+        '''
 
         block_serial = []
         block_list = data.split("END")[:-1]
@@ -268,13 +270,13 @@ class Peer:
         return block_serial
 
     def send_block_chain(self, addr):
-        """
+        '''
         Send the local block chain to the newly joined peer. This does not
         include the genesis block. Place an "END" string at the end of each
         block so that the receiver can parse the blocks and build the chain.
 
         XXX: We are sending the entire blockchain in one go.
-        """
+        '''
 
         # There is always a genesis block.
         if len(self.block_chain.chain) == 1:
@@ -293,10 +295,10 @@ class Peer:
             print(f"Sent local blockchain to {addr}. Length : {len(self.block_chain.chain) - 1}")
 
     def broadcast_block(self, block:str):
-        """
+        '''
         After mining a new block (and proves it's valid), the peer broadcasts
         this serialised block to all other peers.
-        """
+        '''
 
         for peer in self.peer_list:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -309,10 +311,10 @@ class Peer:
                     print(f"{self.my_ip} failed to broadcast a block to {peer} : {e}")
 
     def handle_received_blk(self, block, addr):
-        """
+        '''
         After proving the block is valid, stop mining, add the block
         to the chain and start over.
-        """
+        '''
 
         # Check if we know this peer. This has to be done here.
         if addr not in self.peer_list:
@@ -461,13 +463,13 @@ class Peer:
         self.log(peer_or_block='block', to_file=True)
 
     def make_transaction(self):
-        """
+        '''
         Make a transaction after a period of time (random number from 5 to 10), and
         broadcast the transaction to all its peers immediately. Transactions contain
         personal information of the creator and the song's metadata.
 
         TODO: May add transfer of ownership, licensing, etc.
-        """
+        '''
 
         sleep_time = uniform(5, 10)
         time.sleep(sleep_time)
@@ -538,9 +540,9 @@ class Peer:
                     continue
 
     def log(self, peer_or_block, to_file=False):
-        """
+        '''
         Log the peer list or the blockchain information.
-        """
+        '''
         if peer_or_block != 'peer' and peer_or_block != 'block':
             print(" Warning : Invalid argument for self.log().")
             return
