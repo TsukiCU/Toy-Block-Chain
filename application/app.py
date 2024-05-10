@@ -136,10 +136,10 @@ class App(Peer):
         # FIXME: signature redefined.
         '''
         if type == 'Register':
-            new_transaction = Register(self.user_name, str(datetime.now()), self.signature, self.song_name)
+            new_transaction = Register(self.user_name, self.song_name, str(datetime.now()), self.signature)
             print(f"{self.user_name} registered a song named {self.song_name}. Current pool size : {len(self.transaction_pool)+1}")
         elif type == 'Transfer':
-            new_transaction = Transfer(self.user_name, str(datetime.now()), self.signature, self.song_name)
+            new_transaction = Transfer(self.user_name, self.song_name, str(datetime.now()), self.signature)
             print(f"{self.user_name} transferred a song named {self.song_name}. Current pool size : {len(self.transaction_pool)+1}")
         self.transaction_pool.append(new_transaction)
         self.broadcast_transaction(new_transaction)

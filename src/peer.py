@@ -1,6 +1,7 @@
 import sys
 import time
 import math
+import random
 import socket
 from random import uniform
 from ast import literal_eval
@@ -9,21 +10,19 @@ from datetime import datetime
 
 from struct import pack, unpack
 from utils import *
-from block import Block, Transaction
+from block import *
 from blockchain import Blockchain
 
 ################################
 # Peers are listening on 54321 #
 ################################
 
-#tracker_addr = ("<tracker_internal_ip_address>", 65432)
-tracker_addr = ("172.16.213.130", 65431)
+tracker_addr = ("<tracker_internal_ip_address>", 65432)
 peer_port = 54321
 
 class Peer:
     def __init__(self, stay_time):
-        #self.my_ip = socket.gethostbyname(socket.gethostname())
-        self.my_ip = "172.16.213.130"
+        self.my_ip = socket.gethostbyname(socket.gethostname())
         self.connected = False
         self.stay_time = stay_time
         self.peer_port = peer_port
@@ -218,9 +217,15 @@ class Peer:
             print(f"<!!! WARNING !!!> : Suspicious transaction from unknown sender {addr} !")
             # TODO: Send "Who is this???" to the sender. If necessary, inform the tracker to block this ip.
             return
-
         ts = literal_eval(data)
-        ts = Transaction(ts['user_name'], ts['song_path'], ts['timestamp'], ts['signature'])
+        type = ts['transaction_type']
+        if type == 'Register':
+            ts = Register(ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
+        elif type == 'Transfer':
+            ts = Transfer(ts['user_name'], ts['song_name'], ts['timestamp'], ts['signature'])
+        else:
+            print(f"Unknown transaction type received from {addr}.")
+            return
         self.transaction_pool.append(ts)
         print(f"Received new transaction from {addr}. Transaction pool size : {len(self.transaction_pool)}")
 
@@ -467,15 +472,17 @@ class Peer:
         sleep_time = uniform(5, 10)
         time.sleep(sleep_time)
 
-        # song name is a fixed string for now.
-        song_path = "../application/songs/welcome_to_new_york.mp3"
+        type = ['Register', 'Transfer'][random.randint(0, 1)]
+        song_name = "welcome to the jungle"  # fixed for now
 
         while self.connected:
             # If we are in conflict solving mode, just wait until it's resolved.
             if not self.conflict_solve:
                 continue
-
-            ts = Transaction(self.name, song_path, str(datetime.now()), self.signature)
+            if type == 'Register':
+                ts = Register(self.name, song_name, datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), self.signature)
+            elif type == 'Transfer':
+                ts = Transfer(self.name, song_name, datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), self.signature)
             self.transaction_pool.append(ts)
             print(f"{self.my_ip} made a transaction. Transaction pool size : {len(self.transaction_pool)}")
             self.broadcast_transaction(ts)
@@ -504,6 +511,8 @@ class Peer:
             if not self.conflict_solve:
                 continue
             if len(self.transaction_pool) >= 3:
+                # sleep for a random time between 1 and 3 seconds before mining.
+                time.sleep(random.uniform(1, 3))
                 ts = self.transaction_pool[0].serialize_transaction()
                 create_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
                 block = Block(index=len(self.block_chain.chain), timestamp=create_time, transaction=ts,\

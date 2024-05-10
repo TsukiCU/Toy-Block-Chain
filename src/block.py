@@ -23,7 +23,7 @@ class Transaction:
 
 
 class Register(Transaction):
-    def __init__(self, user_name, timestamp, signature, song_name):
+    def __init__(self, user_name, song_name, timestamp, signature):
         super().__init__(user_name, "Register", timestamp, signature)
         self.song_name = song_name
         self.song_hash = hash_song("songs/" + self.song_name + ".mp3")
@@ -122,5 +122,3 @@ class Block:
                 break
             self.nonce += 1
         self.mine_time = time_difference(self.timestamp, datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
-
-    
